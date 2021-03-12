@@ -1,30 +1,115 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Text;
 using Marketplace.Domain.ValueObjects;
+using Marketplace.Framework;
 
 namespace Marketplace.Domain
 {
-    public class ClassifiedAd
+    public class ClassifiedAd : Entity
     {
-        public ClassifiedAdId Id { get; }
-        public ClassifiedAd(ClassifiedAdId id,UserId ownerId)
+        public ClassifiedAdId Id { get; private set; }
+        public UserId OwnerId { get; private set; }
+        public ClassifiedAdTitle Title { get; private set; }
+        public ClassifiedAdText Text { get; private set; }
+        public Price Price { get; private set; }
+        public ClassifiedAdState State { get; private set; }
+        public UserId ApprovedBy { get; private set; }
+
+
+        public ClassifiedAd(ClassifiedAdId id, UserId ownerId)
         {
-            Id = id;
-            _ownerId = ownerId;
+            Apply(new Events.ClassifiedAdCreated
+            {
+                Id = id,
+                OwnerId = ownerId
+            });
         }
 
-        public void CreateClassifiedAd(ClassifiedAdId id, UserId ownerId)
+        public void SetTitle(ClassifiedAdTitle title)
         {
-            var classifiedAd = new ClassifiedAd(id, ownerId);
+            Apply(new Events.ClassifiedAdTitleChanged
+            {
+                Id = Id,
+                Title = title
+            });
         }
-        private UserId _ownerId;
-        private string _title;
-        private string _text;
-        private decimal _price;
+        public void UpdateText(ClassifiedAdText text)
+        {
+            Apply(new Events.ClassifiedAdTextUpdated
+            {
+                Id = Id,
+                AdText = text
+            });
+        }
+        public void UpdatePrice(Price price)
+        {
+            Apply(new Events.ClassifiedAdPriceUpdated()
+            {
+                Id = Id,
+                Price = price.Amount,
+                CurrencyCode = price.Currency.CurrencyCode
+            });
+        }
+        
+        public void RequestToPublish()
+        {
+            Apply(new Events.ClassifiedAdSentForReview { Id = Id });
+        }
 
-        public void SetTitle(string title) => _title = title;
-        public void UpdateText(string text) => _text = text;
-        public void UpdatePrice(decimal price) => _price = price;
+        protected override void When(object @event)
+        {
+            switch (@event)
+            {
+                case Events.ClassifiedAdCreated e:
+                    Id=new ClassifiedAdId(e.Id);
+                    OwnerId=new UserId(e.OwnerId);
+                    State = ClassifiedAdState.Inactive;
+                    break;
+                case Events.ClassifiedAdTitleChanged e:
+                    Title=new ClassifiedAdTitle(e.Title);
+                    break;
+                case Events.ClassifiedAdTextUpdated e:
+                    Text=new ClassifiedAdText(e.AdText);
+                    break;
+                case Events.ClassifiedAdPriceUpdated e:
+                    Price=new Price(e.Price,e.CurrencyCode);
+                    break;
+                case Events.ClassifiedAdSentForReview e:
+                    State = ClassifiedAdState.PendingReview;
+                    break;
+            }
+        }
+        protected override void EnsureValidState()
+        {
+            var valid =
+                Id != null &&
+                OwnerId != null &&
+                (State switch
+                {
+                    ClassifiedAdState.PendingReview =>
+                        Title != null
+                        && Text != null
+                        && Price?.Amount > 0,
+                    ClassifiedAdState.Active =>
+                        Title != null
+                        && Text != null
+                        && Price?.Amount > 0
+                        && ApprovedBy != null,
+                    _ => true
+                });
+            if (!valid)
+                throw new InvalidEntityStateException(
+                    this, $"Post-checks failed in state {State}");
+        }
+        public enum ClassifiedAdState
+        {
+            PendingReview,
+            Active,
+            Inactive,
+            MarkedAsSold
+        }
+
     }
 }

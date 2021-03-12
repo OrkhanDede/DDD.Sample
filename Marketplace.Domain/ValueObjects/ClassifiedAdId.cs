@@ -7,7 +7,7 @@ namespace Marketplace.Domain.ValueObjects
 {
     public class ClassifiedAdId:Value<ClassifiedAdId>
     {
-        private readonly Guid _value;
+        private readonly Guid Value;
 
         public ClassifiedAdId(Guid value)
         {
@@ -15,7 +15,10 @@ namespace Marketplace.Domain.ValueObjects
                 throw new ArgumentNullException(
                     nameof(value),
                     "Classified Ad id cannot be empty");
-            _value = value;
+            Value = value;
         }
+
+        public static implicit operator Guid(ClassifiedAdId self) => self.Value;
+
     }
 }

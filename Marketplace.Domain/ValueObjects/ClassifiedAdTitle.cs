@@ -8,16 +8,16 @@ namespace Marketplace.Domain.ValueObjects
 {
     public class ClassifiedAdTitle:Value<ClassifiedAdTitle>
     {
-        public static ClassifiedAdTitle FromString(string title) =>
-            new ClassifiedAdTitle(title);
-        private readonly string _value;
-        private ClassifiedAdTitle(string value)
+        private string Value { get; }
+        internal ClassifiedAdTitle(string value)
         {
-            if (value.Length > 100)
-                throw new ArgumentOutOfRangeException(
-                    "Title cannot be longer that 100 characters",
-                    nameof(value));
-            _value = value;
+            CheckValidity(value);
+            Value = value;
+        }
+        public static ClassifiedAdTitle FromString(string title)
+        {
+            CheckValidity(title);
+            return new ClassifiedAdTitle(title);
         }
         public static ClassifiedAdTitle FromHtml(string htmlTitle)
         {
@@ -29,7 +29,6 @@ namespace Marketplace.Domain.ValueObjects
 
             var value = Regex.Replace(supportedTagsReplaced, "<.*?>", string.Empty);
             CheckValidity(value);
-
             return new ClassifiedAdTitle(value);
         }
         private static void CheckValidity(string value)
@@ -39,5 +38,6 @@ namespace Marketplace.Domain.ValueObjects
                     "Title cannot be longer that 100 characters",
                     nameof(value));
         }
+        public static implicit operator String(ClassifiedAdTitle self) => self.Value;
     }
 }
